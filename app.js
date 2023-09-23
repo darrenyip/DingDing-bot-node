@@ -51,8 +51,8 @@ app.post("/ocr", async (req, res) => {
           // 处理imageUrl（调用OCR API）
           const cardRes = await recognizeBusinessCard(imageUrl);
           const cardInfoFormatted = extractBusinessCardInfo(cardRes);
-          // 调用方法存入后端数据库
-          // 通过第一次机器人聊天传入的json里面的conversationId，将这个ocr结果返回给用户
+
+          // 接口只接受群发 userIds接受一个用户ID Array
           const userIds = [];
           userIds.push(currentChatUserId);
           const msg = cardInfoFormatted;
@@ -64,12 +64,14 @@ app.post("/ocr", async (req, res) => {
             msg,
           });
           console.log("cardInfoFormatted", cardInfoFormatted);
+
+          // 调用方法存入后端数据库
+          // const dbRes = await storeToDb()
+          // console.log(dbRes)
         } else {
           console.error("Failed to get image URL.");
         }
-
         break;
-
       case "text":
         const textContent = dingdingMessage.content.text;
         console.log("Received text:", textContent);

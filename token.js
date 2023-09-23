@@ -6,10 +6,6 @@ const $OpenApi = require("@alicloud/openapi-client");
 const appKey = process.env.DING_APP_KEY;
 const appSecret = process.env.DING_APP_SECRET;
 
-console.log("appENV", process.env);
-console.log("app key", appKey);
-console.log("app secret", appSecret);
-
 class DingDingTokenClient {
   /**
    * 使用 Token 初始化账号Client
