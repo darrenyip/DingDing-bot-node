@@ -1,4 +1,7 @@
 const axios = require("axios");
+const { v4: uuidv4 } = require("uuid");
+const DingDingTokenClient = require("./token");
+const recognizeBusinessCard = require("./ocr");
 
 /**
  * @name 发送给用户的消息
@@ -38,6 +41,43 @@ async function sendMessageToUser({ token, robotCode, userIds, msgKey, msg }) {
 }
 
 /**
+ * @name 发送状态交互卡片
+ */
+async function sendStatusCard(options, token) {
+  const receiverUserIdList = ["manager1767"]; // manager1767 为秋玲的id
+  receiverUserIdList.push(options.senderStaffId);
+  const endpoint = "https://api.dingtalk.com/v1.0/im/interactiveCards/send";
+
+  const headers = {
+    "x-acs-dingtalk-access-token": token, // 请替换为实际的access token
+    "Content-Type": "application/json",
+  };
+
+  const data = {
+    cardTemplateId: "87b8a44b-08de-40c1-b717-8b3323396bac.schema", // 你可以提供默认值或直接使用必须的值
+    openConversationId: options.openConversationId,
+    receiverUserIdList,
+    outTrackId: uuidv4(),
+    robotCode: options.robotCode,
+    conversationType: options.conversationType, // 0 单聊，1 群聊
+    // callbackRouteKey: options.callbackRouteKey || "DEFAULT_CALLBACK_ROUTE_KEY",
+    cardData: options.cardData || {},
+    // privateData: options.privateData || {},
+    chatBotId: options.chatbotUserId || "DEFAULT_CHATBOT_ID",
+    // cardOptions: options.cardOptions || { supportForward: true },
+    // pullStrategy: options.pullStrategy || false,
+  };
+
+  try {
+    const response = await axios.post(endpoint, data, { headers });
+    return response.data;
+  } catch (error) {
+    console.error("Error sending status card:", error);
+    throw error;
+  }
+}
+
+/**
  * @name format从OCR服务传回的卡片信息
  * @param {*} cardRes
  * @returns
@@ -69,8 +109,57 @@ function isEmpty(value) {
   );
 }
 
+// 抽取函数处理图片消息
+async function handlePictureMessage(dingdingMessage) {
+  const token = await DingDingTokenClient.get_token();
+  if (!token || !token.accessToken) {
+    throw new Error("Failed to get token.");
+  }
+
+  const downloadCode = dingdingMessage.content.downloadCode;
+  const robotCode = dingdingMessage.robotCode;
+
+  const imageUrl = await getImageUrl(
+    token.accessToken,
+    downloadCode,
+    robotCode
+  );
+  const cardRes = await recognizeBusinessCard(imageUrl);
+  const cardInfoFormatted = extractBusinessCardInfo(cardRes);
+
+  const userIds = ["manager1767"]; // manager1767 为秋玲的id
+  userIds.push(dingdingMessage.senderStaffId);
+
+  await sendMessageToUser({
+    token: token.accessToken,
+    robotCode,
+    userIds,
+    msgKey: "sampleText",
+    msg: cardInfoFormatted,
+  });
+
+  await sendStatusCard(dingdingMessage, token.accessToken);
+}
+
+async function getImageUrl(accessToken, downloadCode, robotCode) {
+  const response = await axios.post(
+    "https://api.dingtalk.com/v1.0/robot/messageFiles/download",
+    { downloadCode, robotCode },
+    {
+      headers: {
+        "x-acs-dingtalk-access-token": accessToken,
+        "Content-Type": "application/json",
+      },
+    }
+  );
+
+  if (response.data && response.data.downloadUrl) {
+    return response.data.downloadUrl;
+  } else {
+    throw new Error("Failed to get image URL.");
+  }
+}
+
 module.exports = {
-  extractBusinessCardInfo,
-  sendMessageToUser,
-  isEmpty,
+  handlePictureMessage,
 };
