@@ -1,8 +1,4 @@
 const axios = require("axios");
-const { v4: uuidv4 } = require("uuid");
-const DingDingTokenClient = require("./token");
-const recognizeBusinessCard = require("./ocr");
-
 /**
  * @name 发送给用户的消息
  * @param { token, robotCode, userIds,msgKey, msg} token ,robotCode, 用户id，消息key，消息内容
@@ -109,57 +105,8 @@ function isEmpty(value) {
   );
 }
 
-// 抽取函数处理图片消息
-async function handlePictureMessage(dingdingMessage) {
-  const token = await DingDingTokenClient.get_token();
-  if (!token || !token.accessToken) {
-    throw new Error("Failed to get token.");
-  }
-
-  const downloadCode = dingdingMessage.content.downloadCode;
-  const robotCode = dingdingMessage.robotCode;
-
-  const imageUrl = await getImageUrl(
-    token.accessToken,
-    downloadCode,
-    robotCode
-  );
-  const cardRes = await recognizeBusinessCard(imageUrl);
-  const cardInfoFormatted = extractBusinessCardInfo(cardRes);
-
-  const userIds = ["manager1767"]; // manager1767 为秋玲的id
-  userIds.push(dingdingMessage.senderStaffId);
-
-  await sendMessageToUser({
-    token: token.accessToken,
-    robotCode,
-    userIds,
-    msgKey: "sampleText",
-    msg: cardInfoFormatted,
-  });
-
-  await sendStatusCard(dingdingMessage, token.accessToken);
-}
-
-async function getImageUrl(accessToken, downloadCode, robotCode) {
-  const response = await axios.post(
-    "https://api.dingtalk.com/v1.0/robot/messageFiles/download",
-    { downloadCode, robotCode },
-    {
-      headers: {
-        "x-acs-dingtalk-access-token": accessToken,
-        "Content-Type": "application/json",
-      },
-    }
-  );
-
-  if (response.data && response.data.downloadUrl) {
-    return response.data.downloadUrl;
-  } else {
-    throw new Error("Failed to get image URL.");
-  }
-}
-
 module.exports = {
-  handlePictureMessage,
+  extractBusinessCardInfo,
+  sendMessageToUser,
+  isEmpty,
 };
